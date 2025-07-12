@@ -25,16 +25,24 @@ public class Pipeline
     public async Task ExecuteAsync()
     {
         var context = new PipelineContext();
-        ConcurrentBag<Task> active_tasks = [];
-        active_tasks.Add(_headStage.ExecuteAsync(context));
-        var pending_stages = _stages.Select(static kv => kv.Key).ToList();
-        List<string> completed_stages = [];
-        while (pending_stages.Count > 0)
+        ConcurrentBag<Task> tasks = [];
+        tasks.Add(_headStage.ExecuteAsync(context));
+        while (GetPendingStageIds().Count > 0)
         {
-            for (var i = pending_stages.Count - 1; i >= 0; i--)
+            var pending_stages = GetPendingStageIds();
+            foreach (var stageId in pending_stages)
             {
-                
+                var stage = _stages[stageId];
+                if (stage.ParentStagesComplete(GetFinishedStageIds()))
+                {
+                    tasks.Add(stage.ExecuteAsync(context));
+                }
             }
+        }
+
+        foreach (var task in tasks)
+        {
+            await task;
         }
     }
 
@@ -48,7 +56,25 @@ public class Pipeline
         }
 
         parentStage.AddChildStage(newStage);
+
+        _stages.Add(newStage.StageId, newStage);
     }
 
-    // private bool 
+    private List<string> GetPendingStageIds()
+        => GetStageIdsByPredicate(s => s.IsPending);
+
+    private List<string> GetActiveStageIds()
+        => GetStageIdsByPredicate(s => s.IsActive);
+
+    private List<string> GetFinishedStageIds()
+        => GetStageIdsByPredicate(s => s.IsFinished);
+
+    private List<string> GetStageIdsByPredicate(Func<AbstractStage, bool> f)
+    {
+        return  _stages
+            .Select((kv) => kv.Value)
+            .Where(f)
+            .Select(s => s.StageId)
+            .ToList();
+    }
 }

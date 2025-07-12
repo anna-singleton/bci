@@ -24,6 +24,12 @@ public class Program
         var childStage = new GuidStage(logger);
         pipeline.AddStageAsChild(childStage, headStage.StageId);
 
+        var delay = DelayStage.Seconds(logger, "Wait 5s", 5.0f);
+        pipeline.AddStageAsChild(delay, headStage.StageId);
+
+        var dumpContextStage = new DumpContextStage(logger);
+        pipeline.AddStageAsChild(dumpContextStage, delay.StageId);
+
         await pipeline.ExecuteAsync();
     }
 }

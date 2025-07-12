@@ -22,4 +22,14 @@ public static class StageStateExtensions
             _ => throw new UnreachableException()
         };
     }
+
+    public static bool IsCompleteOrSkipped(this StageState state)
+    {
+        return state switch
+        {
+            StageState.NotStarted or StageState.InProgress => false,
+            StageState.CompletedSuccess or StageState.CompletedFailed or StageState.Skipped => true,
+            _ => throw new UnreachableException()
+        };
+    }
 }

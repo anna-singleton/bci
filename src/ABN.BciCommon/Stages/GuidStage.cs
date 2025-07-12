@@ -14,8 +14,9 @@ public class GuidStage(ILogger logger) : AbstractStage(logger, "GuidStage")
     protected override Task<StageResult> ProcessAsync(PipelineContext context)
     {
         var guid = Guid.NewGuid().ToString();
-        Logger.LogInformation("generated {Guid}", guid);
-        context.Variables["guid"] = guid;
+        var newGuidIdx = context.Variables.Count(kv => kv.Key.StartsWith("guid-"));
+        Logger.LogInformation("generated {Guid} for Index {Idx}", guid, newGuidIdx);
+        context.Variables[$"guid-{newGuidIdx}"] = guid;
         return Task.FromResult(StageResult.Succeeded);
     }
 }

@@ -25,31 +25,47 @@ public abstract class AbstractStage(ILogger logger, string stageName)
     {
         using var logscope = Logger.BeginScope($"{StageName}.{StageId}");
 
+        Logger.LogInformation("Determing Whether Stage Should Execute.");
+
         if (!await ShouldExecuteAsync(context))
         {
+            Logger.LogInformation("Stage Skipped.");
             State = StageState.Skipped;
             return;
         }
+
+        Logger.LogInformation("Stage Executing...");
 
         State = StageState.InProgress;
         var result = await ProcessAsync(context);
 
         if (result == StageResult.Succeeded)
         {
+            Logger.LogInformation("Stage Execution Successfully.");
             State = StageState.CompletedSuccess;
             return;
         }
 
+        Logger.LogWarning("Stage Execution Failed.");
         State = StageState.CompletedFailed;
         return;
     }
 
     public bool IsComplete => State.IsComplete();
+    public bool IsFinished => State.IsCompleteOrSkipped();
+    public bool IsPending => State == StageState.NotStarted;
+    public bool IsActive => State == StageState.InProgress;
+    public bool IsSkipped => State == StageState.Skipped;
 
     public void AddChildStage(AbstractStage childStage)
     {
         _ = ChildStageIds.Add(childStage.StageId);
         _ = childStage.ParentStageIds.Add(StageId);
+    }
+
+    public bool ParentStagesComplete(List<string> completedStages)
+    {
+        return ParentStageIds.All(id => completedStages.Contains(id));
     }
 
     protected abstract Task<StageResult> ProcessAsync(PipelineContext context);
