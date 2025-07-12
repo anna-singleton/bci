@@ -20,13 +20,13 @@ public class Program
 
         var pipeline = new Pipeline(logger);
 
-        var headStage = pipeline.RegisterStage(new GuidStage(logger, pipeline));
+        var headStage = new GuidStage(pipeline);
 
-        var childGuidStage = headStage.AddChildStage(new GuidStage(logger, pipeline));
+        var childGuidStage = headStage.AddChildStage(new GuidStage(pipeline));
 
-        var delay = headStage.AddChildStage(DelayStage.Seconds(logger, "Wait 5s", pipeline, 5.0f));
+        var delay = headStage.AddChildStage(DelayStage.Seconds("Wait 5s", pipeline, 5.0f));
 
-        var dumpContextStage = delay.AddChildStage(new DumpContextStage(logger, pipeline));
+        var dumpContextStage = delay.AddChildStage(new DumpContextStage(pipeline));
 
         await pipeline.ExecuteAsync();
     }

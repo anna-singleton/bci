@@ -8,7 +8,8 @@ public enum StageState
     Skipped,
     InProgress,
     CompletedSuccess,
-    CompletedFailed
+    CompletedFailed,
+    TimedOut,
 }
 
 public static class StageStateExtensions

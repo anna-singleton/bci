@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace ABN.BciCommon.Stages;
 
-public class DumpContextStage(ILogger logger, Pipeline pipeline) : AbstractStage(logger, "DumpContext", pipeline)
+public class DumpContextStage(Pipeline pipeline) : AbstractStage("DumpContext", pipeline)
 {
     protected override Task<StageResult> ProcessAsync(PipelineContext context)
     {

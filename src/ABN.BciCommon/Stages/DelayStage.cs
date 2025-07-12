@@ -1,10 +1,8 @@
 using ABN.BciCommon.Stages.Base;
 
-using Microsoft.Extensions.Logging;
-
 namespace ABN.BciCommon.Stages;
 
-public class DelayStage(ILogger logger, string stageName, Pipeline pipeline, TimeSpan delay) : AbstractStage(logger, stageName, pipeline)
+public class DelayStage(string stageName, Pipeline pipeline, TimeSpan delay) : AbstractStage(stageName, pipeline)
 {
     private TimeSpan _delay = delay;
 
@@ -14,6 +12,6 @@ public class DelayStage(ILogger logger, string stageName, Pipeline pipeline, Tim
         return StageResult.Succeeded;
     }
 
-    public static DelayStage Seconds(ILogger logger, string stageName, Pipeline pipeline, float seconds)
-        => new DelayStage(logger, stageName, pipeline, TimeSpan.FromSeconds(seconds));
+    public static DelayStage Seconds(string stageName, Pipeline pipeline, float seconds)
+        => new DelayStage(stageName, pipeline, TimeSpan.FromSeconds(seconds));
 }

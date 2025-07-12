@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 
 namespace ABN.BciCommon.Stages.Base;
 
-public abstract class AbstractStage(ILogger logger, string stageName, Pipeline pipeline)
+public abstract class AbstractStage
 {
     public StageState State { get; set; } = StageState.NotStarted;
 
@@ -12,11 +12,13 @@ public abstract class AbstractStage(ILogger logger, string stageName, Pipeline p
 
     public string StageId { get; } = Guid.NewGuid().ToString();
 
-    public string StageName { get; } = stageName;
+    public string StageName { get; }
 
-    protected ILogger Logger { get; } = logger;
+    protected ILogger Logger => ParentPipeline.Logger;
 
-    private Pipeline ParentPipeline { get; } = pipeline;
+    private Pipeline ParentPipeline { get; }
+
+    private Task? TimeoutTask { get; }
 
     protected virtual ValueTask<bool> ShouldExecuteAsync(PipelineContext context)
     {
@@ -58,12 +60,29 @@ public abstract class AbstractStage(ILogger logger, string stageName, Pipeline p
     public bool IsPending => State == StageState.NotStarted;
     public bool IsActive => State == StageState.InProgress;
     public bool IsSkipped => State == StageState.Skipped;
+    public bool IsSuccessful => State == StageState.CompletedSuccess;
+    public bool IsFailed => State == StageState.CompletedFailed;
+    public bool IsTimedOut => State == StageState.TimedOut || (TimeoutTask?.IsCompleted ?? false);
+
+    public AbstractStage(string stageName, Pipeline pipeline)
+    {
+        StageName = stageName;
+        ParentPipeline = pipeline;
+        ParentPipeline.RegisterStage(this);
+    }
+
+    public AbstractStage(string stageName, Pipeline pipeline, TimeSpan timeout)
+    {
+        StageName = stageName;
+        ParentPipeline = pipeline;
+        ParentPipeline.RegisterStage(this);
+        TimeoutTask = Task.Delay(timeout);
+    }
 
     public AbstractStage AddChildStage(AbstractStage childStage)
     {
-        _ = ChildStageIds.Add(childStage.StageId);
         _ = childStage.ParentStageIds.Add(StageId);
-        ParentPipeline.RegisterStage(childStage);
+        _ = ChildStageIds.Add(childStage.StageId);
 
         return childStage;
     }
@@ -72,6 +91,9 @@ public abstract class AbstractStage(ILogger logger, string stageName, Pipeline p
     {
         return ParentStageIds.All(id => completedStages.Contains(id));
     }
+
+    public List<string> GetParentStageIds()
+        => ParentStageIds.ToList();
 
     protected abstract Task<StageResult> ProcessAsync(PipelineContext context);
 }

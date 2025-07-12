@@ -8,17 +8,17 @@ namespace ABN.BciCommon;
 
 public class Pipeline
 {
-    private readonly ILogger _logger;
+    public ILogger Logger { get; }
 
     private readonly Dictionary<string, AbstractStage> _stages;
 
     public Pipeline(ILogger logger)
     {
-        _logger = logger;
+        Logger = logger;
         _stages = [];
     }
 
-    public async Task ExecuteAsync()
+    public Task ExecuteAsync()
     {
         var context = new PipelineContext();
         ConcurrentBag<Task> tasks = [];
@@ -28,17 +28,38 @@ public class Pipeline
             foreach (var stageId in pending_stages)
             {
                 var stage = _stages[stageId];
-                if (stage.ParentStagesComplete(GetFinishedStageIds()))
+                if (stage.IsTimedOut)
+                {
+                    stage.State = StageState.TimedOut;
+                    continue;
+                }
+
+                if (AnyStagesMatchPredicate(stage.GetParentStageIds(), s => s.IsFailed || s.IsSkipped || s.IsTimedOut))
+                {
+                    stage.State = StageState.Skipped;
+                    continue;
+                }
+
+                if (AllStagesMatchPredicate(stage.GetParentStageIds(), s => s.IsSuccessful))
                 {
                     tasks.Add(stage.ExecuteAsync(context));
+                    continue;
                 }
             }
         }
 
-        foreach (var task in tasks)
+        while (_stages.Any(s => s.Value.IsActive))
         {
-            await task;
+            foreach (var stage in _stages.Where(s => s.Value.IsActive))
+            {
+                if (stage.Value.IsTimedOut)
+                {
+                    stage.Value.State = StageState.TimedOut;
+                }
+            }
         }
+
+        return Task.CompletedTask;
     }
 
     public AbstractStage RegisterStage(AbstractStage stage)
@@ -53,6 +74,23 @@ public class Pipeline
         return stage;
     }
 
+    public bool AllStagesMatchPredicate(List<string> Ids, Func<AbstractStage, bool> f)
+    {
+        return Ids
+            .Select(id => _stages[id])
+            .All(f);
+    }
+
+    public bool AnyStagesMatchPredicate(List<string> Ids, Func<AbstractStage, bool> f)
+    {
+        return Ids
+            .Select(id => _stages[id])
+            .Any(f);
+    }
+
+    public List<string> GetAllStageIds()
+        => _stages.Select(kv => kv.Value.StageId).ToList();
+
     private List<string> GetPendingStageIds()
         => GetStageIdsByPredicate(s => s.IsPending);
 
@@ -61,6 +99,12 @@ public class Pipeline
 
     private List<string> GetFinishedStageIds()
         => GetStageIdsByPredicate(s => s.IsFinished);
+
+    private List<string> GetSuccessfulStageIds()
+        => GetStageIdsByPredicate(s => s.IsSuccessful);
+
+    private List<string> GetFailedStageIds()
+        => GetStageIdsByPredicate(s => s.IsFailed);
 
     private List<string> GetStageIdsByPredicate(Func<AbstractStage, bool> f)
     {
