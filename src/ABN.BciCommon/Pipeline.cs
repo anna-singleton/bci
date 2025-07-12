@@ -8,25 +8,20 @@ namespace ABN.BciCommon;
 
 public class Pipeline
 {
-    private readonly AbstractStage _headStage;
-
     private readonly ILogger _logger;
 
     private readonly Dictionary<string, AbstractStage> _stages;
 
-    public Pipeline(ILogger logger, AbstractStage headStage)
+    public Pipeline(ILogger logger)
     {
-        _headStage = headStage;
         _logger = logger;
         _stages = [];
-        _stages.Add(headStage.StageId, headStage);
     }
 
     public async Task ExecuteAsync()
     {
         var context = new PipelineContext();
         ConcurrentBag<Task> tasks = [];
-        tasks.Add(_headStage.ExecuteAsync(context));
         while (GetPendingStageIds().Count > 0)
         {
             var pending_stages = GetPendingStageIds();
@@ -46,18 +41,16 @@ public class Pipeline
         }
     }
 
-    public void AddStageAsChild(AbstractStage newStage, string parentStageId)
+    public AbstractStage RegisterStage(AbstractStage stage)
     {
-        if (!_stages.TryGetValue(parentStageId, out var parentStage))
+        if (_stages.ContainsKey(stage.StageId))
         {
-            _logger.LogError("Could not add stage {StageId}.{StageName} as a child of {ParentStageId}, as the parent could not be found.",
-                    newStage.StageId, newStage.StageName, parentStageId);
-            return;
+            return stage;
         }
 
-        parentStage.AddChildStage(newStage);
+        _stages.Add(stage.StageId, stage);
 
-        _stages.Add(newStage.StageId, newStage);
+        return stage;
     }
 
     private List<string> GetPendingStageIds()

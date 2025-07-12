@@ -17,18 +17,16 @@ public class Program
                     })
                 ).CreateLogger("Pipeline");
         logger.LogInformation("Executing Pipeline...");
-        var headStage = new GuidStage(logger);
-        var pipeline = new Pipeline(logger, headStage);
 
+        var pipeline = new Pipeline(logger);
 
-        var childStage = new GuidStage(logger);
-        pipeline.AddStageAsChild(childStage, headStage.StageId);
+        var headStage = pipeline.RegisterStage(new GuidStage(logger, pipeline));
 
-        var delay = DelayStage.Seconds(logger, "Wait 5s", 5.0f);
-        pipeline.AddStageAsChild(delay, headStage.StageId);
+        var childGuidStage = headStage.AddChildStage(new GuidStage(logger, pipeline));
 
-        var dumpContextStage = new DumpContextStage(logger);
-        pipeline.AddStageAsChild(dumpContextStage, delay.StageId);
+        var delay = headStage.AddChildStage(DelayStage.Seconds(logger, "Wait 5s", pipeline, 5.0f));
+
+        var dumpContextStage = delay.AddChildStage(new DumpContextStage(logger, pipeline));
 
         await pipeline.ExecuteAsync();
     }

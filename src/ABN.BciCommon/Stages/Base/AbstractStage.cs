@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 
 namespace ABN.BciCommon.Stages.Base;
 
-public abstract class AbstractStage(ILogger logger, string stageName)
+public abstract class AbstractStage(ILogger logger, string stageName, Pipeline pipeline)
 {
     public StageState State { get; set; } = StageState.NotStarted;
 
@@ -15,6 +15,8 @@ public abstract class AbstractStage(ILogger logger, string stageName)
     public string StageName { get; } = stageName;
 
     protected ILogger Logger { get; } = logger;
+
+    private Pipeline ParentPipeline { get; } = pipeline;
 
     protected virtual ValueTask<bool> ShouldExecuteAsync(PipelineContext context)
     {
@@ -57,10 +59,13 @@ public abstract class AbstractStage(ILogger logger, string stageName)
     public bool IsActive => State == StageState.InProgress;
     public bool IsSkipped => State == StageState.Skipped;
 
-    public void AddChildStage(AbstractStage childStage)
+    public AbstractStage AddChildStage(AbstractStage childStage)
     {
         _ = ChildStageIds.Add(childStage.StageId);
         _ = childStage.ParentStageIds.Add(StageId);
+        ParentPipeline.RegisterStage(childStage);
+
+        return childStage;
     }
 
     public bool ParentStagesComplete(List<string> completedStages)

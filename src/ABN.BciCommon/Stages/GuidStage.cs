@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace ABN.BciCommon.Stages;
 
-public class GuidStage(ILogger logger) : AbstractStage(logger, "GuidStage")
+public class GuidStage(ILogger logger, Pipeline pipeline) : AbstractStage(logger, "GuidStage", pipeline)
 {
     protected override ValueTask<bool> ShouldExecuteAsync(PipelineContext context)
     {
