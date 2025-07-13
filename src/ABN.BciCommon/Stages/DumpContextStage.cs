@@ -6,7 +6,7 @@ namespace ABN.BciCommon.Stages;
 
 public class DumpContextStage(Pipeline pipeline) : AbstractStage("DumpContext", pipeline)
 {
-    protected override Task<StageResult> ProcessAsync(PipelineContext context)
+    protected override Task<StageResult> ProcessAsync(PipelineContext context, CancellationToken cancellationToken)
     {
         var contextEntries = context.DumpContext();
         Logger.LogInformation("Current Context: {Context}", contextEntries);

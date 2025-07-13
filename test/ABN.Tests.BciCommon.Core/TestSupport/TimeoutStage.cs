@@ -9,9 +9,9 @@ public class TimeoutStage : AbstractStage
     {
     }
 
-    protected override async Task<StageResult> ProcessAsync(PipelineContext context)
+    protected override async Task<StageResult> ProcessAsync(PipelineContext context, CancellationToken cancellationToken)
     {
-        await Task.Delay(TimeSpan.FromSeconds(5));
+        await Task.Delay(TimeSpan.FromSeconds(1.5), cancellationToken);
 
         return StageResult.Succeeded;
     }

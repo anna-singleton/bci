@@ -6,9 +6,9 @@ public class DelayStage(string stageName, Pipeline pipeline, TimeSpan delay) : A
 {
     private TimeSpan _delay = delay;
 
-    protected override async Task<StageResult> ProcessAsync(PipelineContext context)
+    protected override async Task<StageResult> ProcessAsync(PipelineContext context, CancellationToken cancellationToken)
     {
-        await Task.Delay(_delay);
+        await Task.Delay(_delay, cancellationToken);
         return StageResult.Succeeded;
     }
 

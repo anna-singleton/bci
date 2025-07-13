@@ -18,10 +18,9 @@ public class Pipeline
         _stages = [];
     }
 
-    public Task ExecuteAsync()
+    public async Task ExecuteAsync()
     {
         var context = new PipelineContext();
-        ConcurrentBag<Task> tasks = [];
         while (GetPendingStageIds().Count > 0)
         {
             var pending_stages = GetPendingStageIds();
@@ -31,6 +30,7 @@ public class Pipeline
                 if (stage.IsTimedOut)
                 {
                     stage.State = StageState.TimedOut;
+                    stage.CancelStage();
                     continue;
                 }
 
@@ -42,7 +42,7 @@ public class Pipeline
 
                 if (AllStagesMatchPredicate(stage.GetParentStageIds(), s => s.IsSuccessful))
                 {
-                    tasks.Add(stage.ExecuteAsync(context));
+                    await stage.StartStage(context);
                     continue;
                 }
             }
@@ -58,8 +58,6 @@ public class Pipeline
                 }
             }
         }
-
-        return Task.CompletedTask;
     }
 
     public AbstractStage RegisterStage(AbstractStage stage)

@@ -14,18 +14,22 @@ public abstract class AbstractStage
 
     public string StageName { get; }
 
-    protected ILogger Logger => ParentPipeline.Logger;
+    protected ILogger Logger => _parentPipeline.Logger;
 
-    private Pipeline ParentPipeline { get; }
+    private readonly Pipeline _parentPipeline;
 
-    private Task? TimeoutTask { get; }
+    private readonly Task? _timeoutTask;
+
+    private Task? _stageTask;
+
+    private CancellationTokenSource _cancellationTokenSource = new();
 
     protected virtual ValueTask<bool> ShouldExecuteAsync(PipelineContext context)
     {
         return ValueTask.FromResult(true);
     }
 
-    public async Task ExecuteAsync(PipelineContext context)
+    public async Task StartStage(PipelineContext context)
     {
         using var logscope = Logger.BeginScope($"{StageName}.{StageId}");
 
@@ -41,18 +45,8 @@ public abstract class AbstractStage
         Logger.LogInformation("Stage Executing...");
 
         State = StageState.InProgress;
-        var result = await ProcessAsync(context);
 
-        if (result == StageResult.Succeeded)
-        {
-            Logger.LogInformation("Stage Execution Successfully.");
-            State = StageState.CompletedSuccess;
-            return;
-        }
-
-        Logger.LogWarning("Stage Execution Failed.");
-        State = StageState.CompletedFailed;
-        return;
+        _stageTask = Task.Run(() => ExecuteAsync(context, _cancellationTokenSource.Token), _cancellationTokenSource.Token);
     }
 
     public bool IsComplete => State.IsComplete();
@@ -62,21 +56,21 @@ public abstract class AbstractStage
     public bool IsSkipped => State == StageState.Skipped;
     public bool IsSuccessful => State == StageState.CompletedSuccess;
     public bool IsFailed => State == StageState.CompletedFailed;
-    public bool IsTimedOut => State == StageState.TimedOut || (TimeoutTask?.IsCompleted ?? false);
+    public bool IsTimedOut => State == StageState.TimedOut || (_timeoutTask?.IsCompleted ?? false);
 
     public AbstractStage(string stageName, Pipeline pipeline)
     {
         StageName = stageName;
-        ParentPipeline = pipeline;
-        ParentPipeline.RegisterStage(this);
+        _parentPipeline = pipeline;
+        _parentPipeline.RegisterStage(this);
     }
 
     public AbstractStage(string stageName, Pipeline pipeline, TimeSpan timeout)
     {
         StageName = stageName;
-        ParentPipeline = pipeline;
-        ParentPipeline.RegisterStage(this);
-        TimeoutTask = Task.Delay(timeout);
+        _parentPipeline = pipeline;
+        _parentPipeline.RegisterStage(this);
+        _timeoutTask = Task.Delay(timeout);
     }
 
     public AbstractStage AddChildStage(AbstractStage childStage)
@@ -95,5 +89,32 @@ public abstract class AbstractStage
     public List<string> GetParentStageIds()
         => ParentStageIds.ToList();
 
-    protected abstract Task<StageResult> ProcessAsync(PipelineContext context);
+    public void CancelStage()
+    {
+        _cancellationTokenSource.Cancel();
+    }
+
+    protected abstract Task<StageResult> ProcessAsync(PipelineContext context, CancellationToken cancellationToken);
+
+    private async Task ExecuteAsync(PipelineContext context, CancellationToken cancellationToken)
+    {
+        var result = await ProcessAsync(context, cancellationToken);
+
+        if (cancellationToken.IsCancellationRequested)
+        {
+            State = StageState.TimedOut;
+            return;
+        }
+
+        if (result == StageResult.Succeeded)
+        {
+            Logger.LogInformation("Stage Execution Successfully.");
+            State = StageState.CompletedSuccess;
+            return;
+        }
+
+        Logger.LogWarning("Stage Execution Failed.");
+        State = StageState.CompletedFailed;
+        return;
+    }
 }

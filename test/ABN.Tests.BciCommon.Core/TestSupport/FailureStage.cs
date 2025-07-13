@@ -10,7 +10,7 @@ public class FailureStage : AbstractStage
 
     }
 
-    protected override Task<StageResult> ProcessAsync(PipelineContext context)
+    protected override Task<StageResult> ProcessAsync(PipelineContext context, CancellationToken cancellationToken)
     {
         return Task.FromResult(StageResult.Failed);
     }

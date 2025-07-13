@@ -11,7 +11,7 @@ public class GuidStage(Pipeline pipeline) : AbstractStage("GuidStage", pipeline)
         return ValueTask.FromResult(true);
     }
 
-    protected override Task<StageResult> ProcessAsync(PipelineContext context)
+    protected override Task<StageResult> ProcessAsync(PipelineContext context, CancellationToken cancellationToken)
     {
         var guid = Guid.NewGuid().ToString();
         var newGuidIdx = context.Variables.Count(kv => kv.Key.StartsWith("guid-"));
